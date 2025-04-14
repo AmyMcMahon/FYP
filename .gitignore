@@ -1,5 +1,20 @@
-venv/,
-datasets/,
-src/eval,
-src/results/,
+# Virtual environment
+venv/
+
+# Datasets (especially large/raw ones)
+datasets/
+reddit/
+
+# Evaluation scripts or outputs
+src/eval/
+
+# Model output / checkpoints / logs
+src/results/
+
+# Model files (e.g., trained weights, safetensors, etc.)
 src/misogyny-classifier/
+
+# System/editor files (optional but common)
+.DS_Store
+__pycache__/
+*.pyc
