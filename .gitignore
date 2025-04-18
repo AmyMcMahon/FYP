@@ -1,5 +1,6 @@
 # Virtual environment
 venv/
+.venv311/
 
 # Datasets (especially large/raw ones)
 datasets/
@@ -13,6 +14,8 @@ src/results/
 
 # Model files (e.g., trained weights, safetensors, etc.)
 src/misogyny-classifier/
+src/best_model/
+src/best-misogyny-model/
 
 # System/editor files (optional but common)
 .DS_Store
