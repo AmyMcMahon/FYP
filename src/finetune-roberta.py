@@ -5,9 +5,25 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Trai
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
-# 1. Load your dataset
 df = pd.read_csv("../datasets/train/final_labels.csv")
 df = df[['body', 'level_1']].dropna()
+
+new_df = pd.read_csv("../datasets/train/SD_dataset_FINAL.csv")
+comments_df = pd.read_excel("../datasets/train/sampled_comments.xlsx")
+submissions_df = pd.read_excel("../datasets/train/sampled_submissions.xlsx")
+
+combined_new = pd.concat([comments_df, submissions_df], ignore_index=True)
+combined_new['level_1'] = combined_new['label'].map({
+    'Neutral': 'Nonmisogynistic',
+    'Misogynistic': 'Misogynistic',
+    'Mentions Misogyny': 'Misogynistic'
+})
+
+combined_new = combined_new[['body', 'level_1']].dropna()
+
+new_df['level_1'] = new_df['level_1'].map({1: 'Misogynistic', 0: 'Nonmisogynistic'})
+df = pd.concat([df, new_df], ignore_index=True)
+df = pd.concat([df, combined_new], ignore_index=True)
 
 # 2. Encode labels
 label_encoder = LabelEncoder()
@@ -22,9 +38,13 @@ train_dataset = dataset['train']
 test_dataset = dataset['test']
 
 # 5. Load tokenizer & model
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 model_name = "MilaNLProc/bert-base-uncased-ear-misogyny"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=2)
+
+#model = AutoModelForSequenceClassification.from_pretrained("misogyny-classifier")
+#tokenizer = AutoTokenizer.from_pretrained("misogyny-classifier")
 
 # 6. Tokenize the data
 def tokenize_function(example):
