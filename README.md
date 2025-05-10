@@ -26,3 +26,6 @@ This project is for my Final Year Project called "Amplifying Women’s Voices: A
 - **Feature 6: Confusion Matrix Analysis**  
     - **File:** `confuson-matrix.py`  
         This script generates confusion matrices to evaluate the classification performance of the models, providing insights into their accuracy and error rates.
+
+## Results
+The graphs in the images folder shows the findings of the models
