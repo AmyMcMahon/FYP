@@ -1,7 +1,8 @@
+import json
 import pandas as pd
 import torch
 from datasets import Dataset
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, TrainingArguments, Trainer
+from transformers import AutoTokenizer, TrainingArguments, Trainer
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
@@ -25,19 +26,15 @@ new_df['level_1'] = new_df['level_1'].map({1: 'Misogynistic', 0: 'Nonmisogynisti
 df = pd.concat([df, new_df], ignore_index=True)
 df = pd.concat([df, combined_new], ignore_index=True)
 
-# 2. Encode labels
 label_encoder = LabelEncoder()
-df['label'] = label_encoder.fit_transform(df['level_1'])  # e.g., Nonmisogynistic = 1, Misogynistic = 0
+df['label'] = label_encoder.fit_transform(df['level_1'])  
 
-# 3. Convert to HuggingFace Dataset
 dataset = Dataset.from_pandas(df[['body', 'label']])
 
-# 4. Train/test split
 dataset = dataset.train_test_split(test_size=0.2)
 train_dataset = dataset['train']
 test_dataset = dataset['test']
 
-# 5. Load tokenizer & model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 model_name = "MilaNLProc/bert-base-uncased-ear-misogyny"
@@ -46,14 +43,12 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 #model = AutoModelForSequenceClassification.from_pretrained("misogyny-classifier")
 #tokenizer = AutoTokenizer.from_pretrained("misogyny-classifier")
 
-# 6. Tokenize the data
 def tokenize_function(example):
     return tokenizer(example["body"], padding="max_length", truncation=True, max_length=512)
 
 train_dataset = train_dataset.map(tokenize_function, batched=True)
 test_dataset = test_dataset.map(tokenize_function, batched=True)
 
-# 7. Define metrics
 def compute_metrics(eval_pred):
     logits, labels = eval_pred
     predictions = torch.argmax(torch.tensor(logits), dim=-1)
@@ -64,7 +59,6 @@ def compute_metrics(eval_pred):
         "recall": recall_score(labels, predictions),
     }
 
-# 8. Training arguments
 training_args = TrainingArguments(
     output_dir="./results",
     evaluation_strategy="epoch",
@@ -80,22 +74,51 @@ training_args = TrainingArguments(
     metric_for_best_model="f1"
 )
 
-# 9. Trainer
 trainer = Trainer(
-    model=model,
+    model=model_name,
     args=training_args,
     train_dataset=train_dataset,
     eval_dataset=test_dataset,
     compute_metrics=compute_metrics,
 )
 
-# 10. Train
 trainer.train()
 
-# 11. Evaluate
 eval_result = trainer.evaluate()
 print("Evaluation Results:", eval_result)
 
-# (Optional) Save model
+file_path = '../datasets/test/womenEngineers_comment_filtered.json'
+with open(file_path, 'r') as f:
+    lines = f.readlines()
+
+texts = []
+for line in lines:
+    data = json.loads(line)
+    body = data.get("body", "").strip()  
+    texts.append(body)
+
+inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="pt", max_length=512)
+inputs_dataset = Dataset.from_dict({
+    "input_ids": inputs["input_ids"],
+    "attention_mask": inputs["attention_mask"]
+})
+predictions = trainer.predict(inputs_dataset).predictions  
+pred_labels = predictions.argmax(axis=-1) 
+
+level_counts = {"misogynist": sum(pred_labels == 1), "non-misogynist": sum(pred_labels == 0)}
+
+plt.figure(figsize=(8, 6))
+sns.barplot(x=list(level_counts.keys()), 
+            y=list(level_counts.values()), 
+            hue=list(level_counts.keys()), 
+            palette="Blues", 
+            legend=False)
+
+plt.xlabel("Sentiment Level")
+plt.ylabel("Number of Comments")
+plt.title("Distribution of Comments Across Sentiment Levels (Bert EAR manual)")
+plt.savefig("../images/hyperparams-bert-comments.png")
+plt.show()
+
 trainer.save_model("misogyny-classifier")
 tokenizer.save_pretrained("misogyny-classifier")
